@@ -4,7 +4,7 @@ library(jsonlite)
 
 current_session = "latest" #ojo que no llevo meetings, no problemo creo
 LIMX = c(1,2)
-LIMY = c(91.5,98)
+
 
 
 #devuelve dataframe del json de drivers
@@ -36,13 +36,17 @@ getLaps <- function(session){
 
 
 #dibujar la gráfica
-mainPlot <- function(drivers_in){
-  plot(df[which(df$driver_number==14),"lap_duration"], type='n', ylim=LIMY, col = paste0("#",dfDrivers[which(dfDrivers$driver_number==14),"team_colour"]))
+mainPlot <- function(drivers_in,limitey){
+  plot(df[which(df$driver_number==14),"lap_duration"], type='n', ylim=c(limitey[1],limitey[2]), col = paste0("#",dfDrivers[which(dfDrivers$driver_number==14),"team_colour"]))
   #lines(c(1.1,1.2,1.5),type='l')
   for (d in drivers_in){
     n = dfDrivers[which(dfDrivers$full_name==d), "driver_number"]
-    lines(df[which(df$driver_number==n),"lap_duration"],lwd=5, type='l', ylim=LIMY, col = paste0("#",dfDrivers[which(dfDrivers$driver_number==n),"team_colour"]))
+    lines(df[which(df$driver_number==n),"lap_duration"],lwd=3.5, type='l', ylim=c(limitey[1],limitey[2]), col = paste0("#",dfDrivers[which(dfDrivers$driver_number==n),"team_colour"]))
   }
+  grid(nx=NULL,ny=NULL,
+       lty = 2,
+       col = "gray",
+       lwd = 1)
 }
 
 
@@ -52,41 +56,43 @@ dfDrivers <- getDrivers(current_session)
 dfLaps <- getLaps(current_session)
 
 
-#calcular limites de y en funcion de los datos recibidos
-
-
 
 #definir ui-------------------------------------------------------------
 ui <- fluidPage(
   titlePanel("Lap Time"),
   
-  fluidRow(
-    column(2,
-           checkboxGroupInput("checkbox_drivers","Pilotos:",dfDrivers[ , "full_name"])
+  sidebarLayout(
+    sidebarPanel(
+      sliderInput("limitey", "Integer:",
+                  min = 60, max = 170,
+                  value = c(80,150)),
+      checkboxGroupInput("checkbox_drivers","Pilotos:",dfDrivers[ , "full_name"]),
+      actionButton("update","Actualizar gráfico"),
+      actionButton("reload_data","Actualizar datos"),
     ),
-    column(10,
-           plotOutput("plot"),
-           textOutput("seleccionados")
+    mainPanel(
+      plotOutput("plot"),
+      textOutput("seleccionados")
     )
-  )
   
+  
+)
 )
 
 #server logic----------------------------------------------------------
 server <- function(input,output){
   
-  
-  output$out_sector <- renderText({
-    paste0(input$botones_sector)
-  })
+  driverInput <- eventReactive(input$update,input$checkbox_drivers)
   
   output$plot <- renderPlot({
-    mainPlot(input$checkbox_drivers)
+    mainPlot(driverInput(),input$limitey)
   })
   
   output$seleccionados <- renderText({
-    input$checkbox_drivers
+    driverInput()
   })
+  
+  eventReactive(input$reload_data,getLaps())
   
   
 }
